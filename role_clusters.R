@@ -93,10 +93,10 @@ hpdata <- data %>%
         # DPM = (damage.dealt*60)/(duration..s.),
          SPM = (player.score*60)/(duration..s.),
          DeathPM = (deaths*60)/(duration..s.),
-         HillTime=(hill.time..s.*60)/(duration..s.),
-         APM = (assists*60)/(duration..s.))%>%
+         HillTime=(hill.time..s.*60)/(duration..s.))%>%
+        # APM = (assists*60)/(duration..s.))%>%
         # KPM = (kills*60)/(duration..s.))%>%
-  select(player,team,EPM,SPM,DeathPM,HillTime,APM)
+  select(player,team,EPM,SPM,DeathPM,HillTime)
 
 #Clustering Kmeans------
 data <- data %>%
@@ -107,14 +107,14 @@ data <- data %>%
          dmgpr = damage.dealt/ifelse(snd.rounds == 0,duration..s.,snd.rounds),
          spr = player.score/ifelse(snd.rounds == 0,duration..s.,snd.rounds),
          dpr = deaths/ifelse(snd.rounds == 0,duration..s.,snd.rounds),
-         apr = assists/ifelse(snd.rounds == 0,duration..s.,snd.rounds),
+         #apr = assists/ifelse(snd.rounds == 0,duration..s.,snd.rounds),
          kpr = kills/ifelse(snd.rounds == 0,duration..s.,snd.rounds),
          kdr = kills/deaths,
          fbpr = snd.firstbloods/ifelse(snd.rounds == 0,duration..s.,snd.rounds),
          fdpr = snd.firstdeaths/ifelse(snd.rounds == 0,duration..s.,snd.rounds)) 
 player_group<-data%>%
   filter(mode=="Hardpoint")%>%
-  group_by(player,team) %>%
+  group_by(player) %>%
   summarise(EPM = round(sum(EngPlus, na.rm = T)/
                           (sum(duration..s.,na.rm =T))*60,6),
             SPM = round(sum(player.score, na.rm = T)/
@@ -123,16 +123,17 @@ player_group<-data%>%
            #               (sum(duration..s.,na.rm =T))*60,6),
             DeathPM = round(sum(deaths, na.rm = T)/
                               (sum(duration..s.,na.rm =T))*60,6),
-            HillTime=round(mean(hill.time..s.,na.rm = T),1),
-            APM=round(sum(assists,na.rm = T)/(sum(duration..s.,na.rm =T))*60,6))%>%
+            HillTime=round(mean(hill.time..s.,na.rm = T),1))%>%
+          #  APM=round(sum(assists,na.rm = T)/(sum(duration..s.,na.rm =T))*60,6))%>%
            # KPM=round(sum(kills,na.rm=T)/(sum(duration..s.,na.rm =T))*60,6))%>%
-  select(player,SPM,EPM,DeathPM,HillTime,APM)%>%
+  select(player,SPM,EPM,DeathPM,HillTime)%>%
   arrange(desc(SPM))%>%
   data.frame()
 
 hpcluster<-hpdata[,c(-1,-2)]
 hpclusterScaled<-scale(hpcluster)
 
+set.seed(1)
 fitK<-kmeans(hpclusterScaled,6)
 fitK
 plot(hpcluster,col=fitK$cluster)
@@ -152,7 +153,11 @@ player_group$group<-predict(as.kcca(fitK, data = hpclusterScaled), scale(player_
 
 plot(player_group[-1], col = player_group$group)
 
-groups<-player_group%>%
+player_group%>%
+  group_by(group)%>%
+  summarise(count=n())
+
+player_group%>%
   arrange(desc(group))%>%
   select(player,group)
 
