@@ -157,7 +157,7 @@ player_group%>%
   group_by(group)%>%
   summarise(count=n())
 
-player_group%>%
+groups<-player_group%>%
   arrange(desc(group))%>%
   select(player,group)
 
