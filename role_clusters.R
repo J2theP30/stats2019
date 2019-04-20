@@ -85,7 +85,7 @@ Mode = function(x){
 #merge mf#merge mf
 #mapfactor <- read.csv('mapfactor.csv')[,-1]
 #data<-merge(data,mapfactor,by=c('mode', 'map'),all.x = TRUE)
-#Cluster KNN -----------
+#MODE data -----------
 hpdata <- data %>%
   filter(!is.na(assists))%>%
   filter(mode=="Hardpoint")%>%
@@ -97,6 +97,21 @@ hpdata <- data %>%
         # APM = (assists*60)/(duration..s.))%>%
         # KPM = (kills*60)/(duration..s.))%>%
   select(player,team,EPM,SPM,DeathPM,HillTime)
+
+data[is.na(data)]<-0
+snddata <- data %>%
+  filter(!startsWith(as.character(match.id),"missing-"))%>%
+  filter(mode=="Search & Destroy")%>%
+  mutate(EPR=(kills+assists+deaths)/(snd.rounds),
+         # DPM = (damage.dealt*60)/(duration..s.),
+         SPR = (player.score)/(snd.rounds),
+         DeathPR = (deaths)/(snd.rounds),
+         FBPR=(snd.firstbloods)/(snd.rounds),
+         FDPR=(snd.firstdeaths)/(snd.rounds),
+         Plants=(bomb.plants)/(snd.rounds))%>%
+  # APM = (assists*60)/(duration..s.))%>%
+  # KPM = (kills*60)/(duration..s.))%>%
+  select(player,team,EPR,SPR,DeathPR,FBPR,FDPR,Plants)
 
 #Clustering Kmeans------
 data <- data %>%
@@ -152,6 +167,45 @@ player_group$group<-predict(as.kcca(fitK, data = hpclusterScaled), scale(player_
 
 plot(player_group[-1], col = player_group$group)
 
+
+player_group2<-data%>%
+  filter(mode=="Search & Destroy")%>%
+  group_by(player) %>%
+  summarise(EPR=(sum(kills)+sum(assists)+sum(deaths))/sum((snd.rounds)),
+            SPR = (sum(player.score))/sum((snd.rounds)),
+            DeathPR = (sum(deaths))/sum((snd.rounds)),
+            FBPR=(sum(snd.firstbloods))/sum((snd.rounds)),
+            FDPR=(sum(snd.firstdeaths))/sum((snd.rounds)),
+            Plants=(sum(bomb.plants))/sum((snd.rounds)))%>%
+  select(player,EPR,SPR,DeathPR,FBPR,FDPR,Plants)%>%
+  arrange(desc(EPR))%>%
+  data.frame()
+
+sndcluster<-snddata[,c(-1,-2)]
+sndclusterScaled<-scale(sndcluster)
+set.seed(1)
+fitKSnD<-kmeans(sndclusterScaled,6)
+fitKSnD
+
+player_group2$group<-predict(as.kcca(fitKSnD, data = sndclusterScaled), scale(player_group2[-1]))
+plot(player_group2[-1], col = player_group2$group)
+
+player_group2%>%
+  group_by(group)%>%
+  summarise(count=n())
+player_group2%>%
+  arrange(desc(group))
+
+
+
+
+
+
+
+
+
+
+
 #add overall group to data
 data <- merge(data, player_group[,c('player','group')], by = 'player')
 data$group <- as.factor(data$group)
@@ -159,11 +213,11 @@ data$group <- as.factor(data$group)
 library(lme4)
 library(lmerTest)
 library(ggplot2)
-total <- lme4::glmer(win. ~ scale(spr):mode + 
-                          scale(dpr):mode + 
+total <- lme4::glmer(win. ~ scale(spr):mode +
+                          scale(dpr):mode +
                           scale(dmgpr):mode +
-                          scale(apr):mode + 
-                          # scale(kpr):mode + 
+                          scale(apr):mode +
+                          # scale(kpr):mode +
                           (mode|group),
                         data %>% filter(!is.na(spr)), family = binomial(link='logit'))
 summary(total)
@@ -204,13 +258,3 @@ final %>%
   filter(group == 4) %>% 
   select(player)
   summarise(count = n())
-
-player_group%>%
-  group_by(group)%>%
-  summarise(count=n())
-
-groups<-player_group%>%
-  arrange(desc(group))%>%
-  select(player,group)
-
-data<-merge(data,groups,by="player")
