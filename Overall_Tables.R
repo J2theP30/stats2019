@@ -86,9 +86,8 @@ datafw$player <- replace(as.character(datafw$player), datafw$player == "Priestah
 
 
 #merge all data
-
-#data<-rbind(dataplq,datapl)
-data<-rbind(datapl,datafw)
+data<-rbind(dataplq,datapl)
+data<-rbind(data,datafw)
 
 
 #merge mapfactor
@@ -250,8 +249,10 @@ hplb<-data%>%
   group_by(match.id, team) %>%
   mutate(ptd = deaths/sum(deaths, na.rm = T)) %>%
   ungroup() %>%
-  group_by(player,team) %>%
+  group_by(player) %>%
   summarise(EPM = round(sum(EngPlus, na.rm = T)/
+                          (sum(duration..s.,na.rm =T))*60,6),
+            KPM = round(sum(kills, na.rm = T)/
                           (sum(duration..s.,na.rm =T))*60,6),
             SPM = round(sum(player.score, na.rm = T)/
                           (sum(duration..s.,na.rm =T))*60,6),
@@ -259,13 +260,18 @@ hplb<-data%>%
                           (sum(duration..s.,na.rm =T))*60,6),
             DeathPM = round(sum(deaths, na.rm = T)/
                               (sum(duration..s.,na.rm =T))*60,6),
+            APM = round(sum(assists, na.rm = T)/
+                          (sum(duration..s.,na.rm =T))*60,6),
             HPKD=sum(kills,na.rm = T)/sum(deaths,na.rm = T), 
             HPMaps=n(), 
-            HPRating = mean(pred, na.rm = T)/0.5,
+            weapon = Mode(fave.weapon),
+            HPRating = ifelse(weapon == "Saug 9mm",
+                              predict(hpSUBPred, data.frame(apr = APM/60, dpr = DeathPM/60, dmgpr=DPM/60), type = "response", allow.new.levels = T),
+                              predict(hpARPred, data.frame(dpr= DeathPM/60, spr = SPM/60), type = "response", allow.new.levels = T))/0.5,
             PTD = mean(ptd, na.rm =T),
             HillTime=round(mean(hill.time..s.,na.rm = T),1))%>%
-  select(player,team,HPKD,SPM,DPM,EPM,PTD,DeathPM,HillTime,HPRating,HPMaps)%>%
-  arrange(desc(HPKD))%>%
+  select(player,HPKD,SPM,DPM,EPM,PTD,DeathPM,HillTime,HPRating,HPMaps)%>%
+  arrange(desc(HPRating))%>%
   data.frame()
 
 sndlb<-data%>%

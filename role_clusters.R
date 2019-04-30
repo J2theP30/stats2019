@@ -6,6 +6,7 @@ library(dplyr)
 library(googlesheets)
 library(flexclust)
 library(reshape2)
+library(fmsb)
 
 ###############Pro League###########
 
@@ -90,13 +91,13 @@ hpdata <- data %>%
   filter(!is.na(assists))%>%
   filter(mode=="Hardpoint")%>%
   mutate(EPM=((kills+assists+deaths)/mf*100)*60/(duration..s.),
-        # DPM = (damage.dealt*60)/(duration..s.),
+        #KillEff = (kills*150+assists*75)/damage.dealt,
          SPM = (player.score*60)/(duration..s.),
          DeathPM = (deaths*60)/(duration..s.),
-         HillTime=(hill.time..s.*60)/(duration..s.))%>%
+         HillTime=(hill.time..s.*60)/(duration..s.),
         # APM = (assists*60)/(duration..s.))%>%
-        # KPM = (kills*60)/(duration..s.))%>%
-  select(player,team,EPM,SPM,DeathPM,HillTime)
+         KPM = (kills*60)/(duration..s.))%>%
+  select(player,team,EPM,SPM,KPM,DeathPM,HillTime)
 
 data[is.na(data)]<-0
 snddata <- data %>%
@@ -122,6 +123,7 @@ data <- data %>%
          dmgpr = damage.dealt/ifelse(snd.rounds == 0,duration..s.,snd.rounds),
          spr = player.score/ifelse(snd.rounds == 0,duration..s.,snd.rounds),
          dpr = deaths/ifelse(snd.rounds == 0,duration..s.,snd.rounds),
+         KillEff = (kills*150+assists*75)/damage.dealt,
          #apr = assists/ifelse(snd.rounds == 0,duration..s.,snd.rounds),
          kpr = kills/ifelse(snd.rounds == 0,duration..s.,snd.rounds),
          kdr = kills/deaths,
@@ -134,14 +136,17 @@ player_group<-data%>%
                           (sum(duration..s.,na.rm =T))*60,6),
             SPM = round(sum(player.score, na.rm = T)/
                           (sum(duration..s.,na.rm =T))*60,6),
+         # KillEff = (sum(kills)*150+sum(assists)*75)/sum(damage.dealt),
+          
            # DPM = round(sum(damage.dealt, na.rm = T)/
            #               (sum(duration..s.,na.rm =T))*60,6),
             DeathPM = round(sum(deaths, na.rm = T)/
                               (sum(duration..s.,na.rm =T))*60,6),
-            HillTime=round(mean(hill.time..s.,na.rm = T),1))%>%
+            HillTime=round(mean(hill.time..s.,na.rm = T),1),
+   #       Weapon=ifelse(Mode(fave.weapon)=="Saug 9mm",1,2))%>%
           #  APM=round(sum(assists,na.rm = T)/(sum(duration..s.,na.rm =T))*60,6))%>%
-           # KPM=round(sum(kills,na.rm=T)/(sum(duration..s.,na.rm =T))*60,6))%>%
-  select(player,SPM,EPM,DeathPM,HillTime)%>%
+            KPM=round(sum(kills,na.rm=T)/(sum(duration..s.,na.rm =T))*60,6))%>%
+  select(player,EPM,SPM,KPM,DeathPM,HillTime)%>%
   arrange(desc(SPM))%>%
   data.frame()
 
@@ -168,15 +173,23 @@ player_group$group<-predict(as.kcca(fitK, data = hpclusterScaled), scale(player_
 plot(player_group[-1], col = player_group$group)
 
 
+
+player_group%>%
+  group_by(group)%>%
+  summarise(count=n())
+player_group%>%
+  arrange(desc(group))
+
+
+
 player_group2<-data%>%
   filter(mode=="Search & Destroy")%>%
   group_by(player) %>%
   summarise(EPR=(sum(kills)+sum(assists)+sum(deaths))/sum((snd.rounds)),
             SPR = (sum(player.score))/sum((snd.rounds)),
+           #KillEff = (sum.)
             DeathPR = (sum(deaths))/sum((snd.rounds)),
-            FBPR=(sum(snd.firstbloods))/sum((snd.rounds)),
-            FDPR=(sum(snd.firstdeaths))/sum((snd.rounds)),
-            Plants=(sum(bomb.plants))/sum((snd.rounds)))%>%
+            FBPR=(sum(snd.firstbloods)+sum(snd.firstdeaths))/sum((snd.rounds)))%>%
   select(player,EPR,SPR,DeathPR,FBPR,FDPR,Plants)%>%
   arrange(desc(EPR))%>%
   data.frame()
