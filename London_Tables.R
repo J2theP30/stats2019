@@ -11,6 +11,10 @@ url  <- "https://stats.gammaray.io/api/v1/report/cwl-london-2019/playermatches/"
 raw <- getURL(url = url)
 data <- read.csv (text = raw)
 
+data_firstgame <- read.csv('head_london.csv')
+data_firstgame$match.id <- as.factor(data_firstgame$match.id)
+data <- rbind(data, data_firstgame)
+
 data<-merge(data,mapfactor,by=c('mode', 'map'),all.x = TRUE)
 
 Mode = function(x){ 
@@ -409,3 +413,14 @@ write.csv(teamlb, file = "TestTeamLeaderboardLondon.csv")
 respawnlb%>%
   select(player,team,DPM,RespawnKD,RespawnMaps)%>%
   arrange(desc(DPM))
+
+data%>%
+  group_by(series.id,player,team,opponent)%>%
+  mutate(hek = ifelse(mode == "Hardpoint", kills, ifelse(mode == "Search & Destroy", kills*3.63, kills*1.23))) %>%
+  mutate(hed = ifelse(mode == "Hardpoint", deaths, ifelse(mode == "Search & Destroy", deaths*3.63, deaths*1.23))) %>%
+  group_by(player, team,opponent) %>%
+  summarise(KD = round(sum(kills, na.rm = T)/sum(deaths, na.rm = T),2),
+            aKD = round(sum(hek, na.rm = T)/sum(hed, na.rm = T),2),
+            EPMov = round(sum(EngPlus, na.rm = T)/sum(duration..s., na.rm = T), 3),
+            TotalMaps = n()) %>%
+  arrange(desc(aKD))

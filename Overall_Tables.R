@@ -20,6 +20,9 @@ gs_ws_ls(pull)
 #get data just from Sheet1
 datavegas <- as.data.frame(gs_read(ss=pull, ws = "Sheet1"))
 datavegas<-datavegas%>%
+  mutate(mode=ifelse(mode=="HP","Hardpoint",ifelse(mode=="SND","Search & Destroy","Control")))
+datavegas<-datavegas%>%
+  filter(PoolBracket=="Bracket")%>%
   group_by(player,mode)%>%
   summarise(kills=sum(kills,na.rm = T),deaths=sum(deaths,na.rm=T))
 
@@ -83,11 +86,36 @@ datafw$team <- replace(as.character(datafw$team), datafw$team == "Thieves", "100
 datafw$player <- replace(as.character(datafw$player), datafw$player == "Felony", "Felo")
 datafw$player <- replace(as.character(datafw$player), datafw$player == "Priestah", "Priestahh")
 
+datafw<-datafw%>%
+  filter(startsWith(as.character(series.id),"champs"))%>%
+  group_by(player,mode)%>%
+  summarise(kills=sum(kills,na.rm = T),deaths=sum(deaths,na.rm=T))
 
+##########London##############
+url  <- "https://stats.gammaray.io/api/v1/report/cwl-london-2019/playermatches/"
 
+raw <- getURL(url = url)
+datalondon <- read.csv (text = raw)
+
+data_firstgame <- read.csv('head_london.csv')
+data_firstgame$match.id <- as.factor(data_firstgame$match.id)
+datalondon <- rbind(datalondon, data_firstgame)
+datalondon$team <- replace(as.character(datalondon$team), datalondon$team == "Thieves", "100 Thieves")
+datalondon$player <- replace(as.character(datalondon$player), datalondon$player == "Felony", "Felo")
+datalondon$player <- replace(as.character(datalondon$player), datalondon$player == "Priestah", "Priestahh")
+datalondon$player <- replace(as.character(datalondon$player), datalondon$player == "Alex", "Alexx")
+
+datalondon<-datalondon%>%
+  filter(startsWith(as.character(series.id),"champs"))%>%
+  group_by(player,mode)%>%
+  summarise(kills=sum(kills,na.rm = T),deaths=sum(deaths,na.rm=T))
 #merge all data
-data<-rbind(dataplq,datapl)
-data<-rbind(data,datafw)
+#data<-rbind(dataplq,datapl)
+#data<-rbind(data,datafw)
+data<-rbind(datavegas,datafw)
+data<-rbind(data,datalondon)
+
+
 
 
 #merge mapfactor
@@ -597,6 +625,33 @@ data%>%
   group_by(player)%>%
   summarise(Specialist=Mode(specialist),TK=sum(team.kills))%>%
   arrange(desc(TK))
+
+
+
+#akd
+data%>%
+  group_by(player,mode)%>%
+  mutate(hek = ifelse(mode == "Hardpoint", kills, ifelse(mode == "Search & Destroy", kills*3.63, kills*1.23))) %>%
+  mutate(hed = ifelse(mode == "Hardpoint", deaths, ifelse(mode == "Search & Destroy", deaths*3.63, deaths*1.23))) %>%
+  ungroup()%>%
+  group_by(player)%>%
+  summarise(cumaKD = sum(hek)/sum(hed))%>%
+  arrange(desc(cumaKD))
+
+#overallkd
+data%>%
+  group_by(player)%>%
+  summarise(KD = sum(kills)/sum(deaths))%>%
+  arrange(desc(KD))
+
+
+
+
+
+
+
+
+
 
 
 
